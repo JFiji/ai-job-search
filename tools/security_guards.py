@@ -38,6 +38,9 @@ errors: list[str] = []
 # an entry must add it here too - that is the point: the diff shows both.
 ALLOWED_PERMISSIONS = {
     "Skill(job-application-assistant)",
+    "Skill(search-and-rank)",
+    "Skill(tailor-documents)",
+    "Skill(apply)",
     "Bash(bun run:*)",
     "Bash(python salary_lookup.py:*)",
     "Bash(python3 salary_lookup.py:*)",
@@ -47,7 +50,7 @@ ALLOWED_PERMISSIONS = {
 # Personal-data ignore rules that must never disappear from .gitignore.
 REQUIRED_IGNORE_RULES = [
     "salary_data.json",
-    # Depth-independent: the job-scraper skill resolves `job_scraper/` relative
+    # Depth-independent: the search-and-rank skill resolves `job_scraper/` relative
     # to its own directory, so the state file lands under .claude/skills/... and
     # a repo-rooted rule silently fails to match it.
     "**/job_scraper/seen_jobs.json",

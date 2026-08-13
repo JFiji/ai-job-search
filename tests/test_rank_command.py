@@ -19,7 +19,7 @@ except ImportError:
 
 REPO = Path(__file__).resolve().parent.parent
 COMMAND = REPO / ".claude" / "commands" / "rank.md"
-SCRAPER_SKILL = REPO / ".claude" / "skills" / "job-scraper" / "SKILL.md"
+SCRAPER_SKILL = REPO / ".claude" / "skills" / "search-and-rank" / "SKILL.md"
 
 
 def _sections(text: str) -> dict[str, str]:
