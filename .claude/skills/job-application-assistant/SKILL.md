@@ -1,14 +1,36 @@
 ---
 name: job-application-assistant
 description: >
-  Assists with job applications: evaluating job postings, tailoring CVs, writing cover letters,
-  and preparing for interviews. Triggers on keywords like: job posting, job application, CV,
-  cover letter, resume, interview prep, job fit, career, application, apply, ansøgning, stilling
+  General career advisor and shared reference core for the job-application workflow: job-fit
+  strategy, career positioning, and interview preparation. For the phase tasks it defers to the
+  three pipeline skills (search-and-rank, tailor-documents, apply). Triggers on: career advice,
+  job-fit strategy, evaluate a job posting, interview prep, career positioning, personal branding
 allowed-tools: Read, Glob, Grep, WebFetch, WebSearch, Bash, Edit, Write, AskUserQuestion
-framework_version: 1.3.2
+framework_version: 1.4.0
 ---
 
 # Job Application Assistant
+
+This skill is both the **general career advisor** (job-fit strategy, positioning, interview prep)
+and the **shared reference core** for the whole workflow.
+
+## Shared reference core
+
+The nine numbered docs in this folder (`01-candidate-profile.md` … `09-web-research.md`, listed in
+the Reference Files table below) are the **single-source reference library** loaded by the three
+phase skills. They are read-only and shared, so any number of skills can load them concurrently
+with zero contention:
+
+- **`search-and-rank`** (phase 1 — find & rank jobs) reads `04-job-evaluation.md` and
+  `09-web-research.md`; it writes `job_scraper/seen_jobs.json`.
+- **`tailor-documents`** (phase 2 — draft CV & cover letter) reads `03`, `05`, `06`, `08`; it writes
+  `cv/main_*.tex` and `cover_letters/cover_*.tex`.
+- **`apply`** (phase 3 — submit & record) reads `01` and `04`; it writes `job_search_tracker.csv`
+  and `documents/applications/`.
+
+The three phase skills own the pipeline and each runs independently, on a disjoint set of writable
+files. This skill holds the reference docs they share and handles the general career-advisory work
+(and the end-to-end workflow below) that doesn't belong to a single phase.
 
 ---
 

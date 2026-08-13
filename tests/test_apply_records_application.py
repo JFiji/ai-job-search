@@ -31,7 +31,7 @@ GMAIL_SYNC = COMMANDS / "gmail-sync.md"
 HTML_REPORT = COMMANDS / "html-report.md"
 NOTION_SYNC = COMMANDS / "notion-sync.md"
 SKILL = REPO / ".claude" / "skills" / "job-application-assistant" / "SKILL.md"
-SCRAPER = REPO / ".claude" / "skills" / "job-scraper" / "SKILL.md"
+SCRAPER = REPO / ".claude" / "skills" / "search-and-rank" / "SKILL.md"
 
 TRACKER_HEADER = (
     "date,company,sector,role,role_type,channel,status,contact_person,"
@@ -162,8 +162,9 @@ class DraftedMeansDraftedToEveryReader(unittest.TestCase):
         (NOTION_SYNC, None, "not yet submitted",
          "page bodies are write-once, so calling drafts 'submitted documents' "
          "is permanent even after /outcome records the real submission"),
-        (SCRAPER, None, "do not add a second row",
-         "/scrape would duplicate the row Step 3b just wrote"),
+        (SCRAPER, None, "never adds a second row",
+         "search-and-rank must never write the tracker; the apply skill is its single "
+         "writer, or the row is duplicated"),
         (APPLY, "### Step 6b: Record the Application", "bare number, 0-100",
          "/upskill divides by fit_rating, so `72/100` or a verdict word breaks it"),
         (APPLY, "### Step 6b: Record the Application", "append a new row",

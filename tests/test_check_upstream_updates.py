@@ -23,6 +23,9 @@ FRAMEWORK_FILES = [
     ".claude/skills/job-application-assistant/08-application-forms.md",
     ".claude/skills/job-application-assistant/09-web-research.md",
     ".claude/skills/job-application-assistant/SKILL.md",
+    ".claude/skills/search-and-rank/SKILL.md",
+    ".claude/skills/tailor-documents/SKILL.md",
+    ".claude/skills/apply/SKILL.md",
     "AGENTS.md",
 ]
 
