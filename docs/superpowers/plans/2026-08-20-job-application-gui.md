@@ -2037,7 +2037,9 @@ wireApplyForm();
 loadData();
 ```
 
-- [ ] **Step 6: Typecheck the backend (dashboard.js/dashboard-logic.js are plain JS, not part of tsc)**
+- [ ] **Step 6: Typecheck**
+
+`tsconfig.json`'s `include` covers `public/**/*.js` with `allowJs: true` (set in Task 1) so these plain-JS files resolve cleanly as imports from the `.ts` test file — they are loosely typed (no JSDoc annotations), not strictly checked, but must still resolve without error.
 
 Run: `cd dashboard && bun run typecheck && bun test`
 Expected: no type errors, all tests PASS
@@ -2249,12 +2251,14 @@ rm tests/test_html_report_command.py
 
 - [ ] **Step 3: Run the new test, verify it passes**
 
-Run: `python3 -m pytest tests/test_dashboard_command.py -v`
-Expected: all PASS (or the lint integration test SKIPPED if PyYAML isn't installed)
+This repo's CI runs Python tests with `unittest discover`, not pytest (see `.github/workflows/*.yml`'s `python-tests` job: `python -m unittest discover -s tests -t . -v`) — use the same invocation here.
+
+Run: `python3 -m unittest tests.test_dashboard_command -v`
+Expected: all PASS (or the lint integration test SKIPPED if PyYAML isn't installed — check with `python3 -c "import yaml"`; if missing, `pip install pyyaml` to match what CI installs before its lint step)
 
 - [ ] **Step 4: Run the full Python test suite to confirm nothing else references the old command**
 
-Run: `python3 -m pytest tests/ -v`
+Run: `python3 -m unittest discover -s tests -t . -v`
 Expected: all PASS
 
 - [ ] **Step 5: Run the full dashboard test suite one more time end-to-end**
