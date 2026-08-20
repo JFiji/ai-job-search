@@ -14,6 +14,42 @@ export interface TrackerRow {
   source: string;
 }
 
+export const STATUS_BUCKETS = [
+  "Drafted",
+  "Active",
+  "Interview",
+  "Offer",
+  "Hired",
+  "Rejected/Closed",
+] as const;
+export type StatusBucket = (typeof STATUS_BUCKETS)[number];
+
+export interface NormalizedRow extends TrackerRow {
+  bucket: StatusBucket;
+  outcomeStages?: string[];
+}
+
+const BUCKET_MAP: Record<string, StatusBucket> = {
+  drafted: "Drafted",
+  applied: "Active",
+  interview: "Interview",
+  offer: "Offer",
+  hired: "Hired",
+  rejected: "Rejected/Closed",
+  no_response: "Rejected/Closed",
+  "no response": "Rejected/Closed",
+  offer_declined: "Rejected/Closed",
+  "offer declined": "Rejected/Closed",
+  withdrawn: "Rejected/Closed",
+};
+
+export function normalizeStatus(raw: string): { bucket: StatusBucket; unrecognized: boolean } {
+  const key = raw.trim().toLowerCase();
+  const bucket = BUCKET_MAP[key];
+  if (bucket) return { bucket, unrecognized: false };
+  return { bucket: "Rejected/Closed", unrecognized: true };
+}
+
 const TRACKER_COLUMNS: (keyof TrackerRow)[] = [
   "date", "company", "sector", "role", "role_type", "channel", "status",
   "contact_person", "fit_rating", "notes", "cv_file", "cover_letter_file", "source",

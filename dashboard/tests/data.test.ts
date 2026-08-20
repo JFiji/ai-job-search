@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseCsv, parseTrackerCsv } from "../src/data";
+import { parseCsv, parseTrackerCsv, normalizeStatus } from "../src/data";
 
 describe("parseCsv", () => {
   test("splits simple comma-separated rows", () => {
@@ -60,5 +60,29 @@ describe("parseTrackerCsv", () => {
     const { rows, malformedCount } = parseTrackerCsv("");
     expect(rows).toEqual([]);
     expect(malformedCount).toBe(0);
+  });
+});
+
+describe("normalizeStatus", () => {
+  test("maps canonical statuses to their buckets", () => {
+    expect(normalizeStatus("drafted")).toEqual({ bucket: "Drafted", unrecognized: false });
+    expect(normalizeStatus("applied")).toEqual({ bucket: "Active", unrecognized: false });
+    expect(normalizeStatus("interview")).toEqual({ bucket: "Interview", unrecognized: false });
+    expect(normalizeStatus("offer")).toEqual({ bucket: "Offer", unrecognized: false });
+    expect(normalizeStatus("hired")).toEqual({ bucket: "Hired", unrecognized: false });
+  });
+
+  test("maps rejection synonyms, including legacy space spellings, to Rejected/Closed", () => {
+    for (const value of ["rejected", "no_response", "no response", "offer_declined", "offer declined", "withdrawn"]) {
+      expect(normalizeStatus(value)).toEqual({ bucket: "Rejected/Closed", unrecognized: false });
+    }
+  });
+
+  test("is case-insensitive and trims whitespace", () => {
+    expect(normalizeStatus("  Applied  ")).toEqual({ bucket: "Active", unrecognized: false });
+  });
+
+  test("buckets unrecognized values into Rejected/Closed and flags them", () => {
+    expect(normalizeStatus("ghosted")).toEqual({ bucket: "Rejected/Closed", unrecognized: true });
   });
 });
