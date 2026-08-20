@@ -1,8 +1,9 @@
-"""Tests for the /html-report command and its gitignore rule.
+"""Tests for the /dashboard command.
 
 Mirrors the pattern in test_security_guards.py: one class that verifies
 properties of the real repo, testing the things CI would catch if the
-command file or gitignore rule were wrong.
+command file were wrong. Replaces test_html_report_command.py now that
+/dashboard has taken over from /html-report.
 """
 
 import subprocess
@@ -17,12 +18,12 @@ except ImportError:
     _HAVE_YAML = False
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-COMMAND_FILE = REPO_ROOT / ".claude" / "commands" / "html-report.md"
+COMMAND_FILE = REPO_ROOT / ".claude" / "commands" / "dashboard.md"
+OLD_COMMAND_FILE = REPO_ROOT / ".claude" / "commands" / "html-report.md"
 LINT_SCRIPT = REPO_ROOT / "tools" / "lint_skills.py"
-GITIGNORE = REPO_ROOT / ".gitignore"
 
 
-class HtmlReportCommandFileTests(unittest.TestCase):
+class DashboardCommandFileTests(unittest.TestCase):
     """Structural checks on the command file itself."""
 
     def test_command_file_exists(self):
@@ -33,24 +34,18 @@ class HtmlReportCommandFileTests(unittest.TestCase):
         text = COMMAND_FILE.read_text(encoding="utf-8")
         first_line = text.lstrip().splitlines()[0]
         self.assertTrue(
-            first_line.startswith("# /html-report"),
-            f"Command file must start with '# /html-report', got: {first_line!r}",
+            first_line.startswith("# /dashboard"),
+            f"Command file must start with '# /dashboard', got: {first_line!r}",
         )
 
     def test_command_file_is_non_empty(self):
         text = COMMAND_FILE.read_text(encoding="utf-8").strip()
         self.assertGreater(len(text), 100, "Command file appears suspiciously short")
 
-
-class HtmlReportGitignoreTests(unittest.TestCase):
-    """reports/ must be gitignored — it holds personal generated output."""
-
-    def test_reports_folder_is_gitignored(self):
-        rules = {line.strip() for line in GITIGNORE.read_text(encoding="utf-8").splitlines()}
-        self.assertIn(
-            "reports/",
-            rules,
-            "reports/ must be listed in .gitignore — generated dashboards are personal output",
+    def test_old_html_report_command_is_retired(self):
+        self.assertFalse(
+            OLD_COMMAND_FILE.exists(),
+            "html-report.md should have been removed when /dashboard replaced it",
         )
 
 
@@ -58,7 +53,7 @@ class HtmlReportGitignoreTests(unittest.TestCase):
     _HAVE_YAML,
     "PyYAML not installed (the CI Python-test job omits it; the lint job runs lint_skills.py directly)",
 )
-class HtmlReportLintIntegrationTests(unittest.TestCase):
+class DashboardLintIntegrationTests(unittest.TestCase):
     """lint_skills.py must pass after the command is added."""
 
     def test_lint_passes_on_real_repo(self):

@@ -28,7 +28,6 @@ COMMANDS = REPO / ".claude" / "commands"
 APPLY = COMMANDS / "apply.md"
 OUTCOME = COMMANDS / "outcome.md"
 GMAIL_SYNC = COMMANDS / "gmail-sync.md"
-HTML_REPORT = COMMANDS / "html-report.md"
 NOTION_SYNC = COMMANDS / "notion-sync.md"
 SKILL = REPO / ".claude" / "skills" / "job-application-assistant" / "SKILL.md"
 SCRAPER = REPO / ".claude" / "skills" / "job-scraper" / "SKILL.md"
@@ -137,11 +136,6 @@ class DraftedMeansDraftedToEveryReader(unittest.TestCase):
     """
 
     CASES = [
-        (HTML_REPORT, None, "`drafted` → **Drafted**",
-         "a status with no bucket is dropped from every statistic"),
-        (HTML_REPORT, "## Step 2: Compute Summary Stats",
-         "excluded from every statistic below",
-         "the headline count would include applications that were never sent"),
         (OUTCOME, "## Step 2b: Follow-Up Branch", "neither final nor `drafted`",
          "it would chase an employer who received nothing"),
         (OUTCOME, "## Step 4: Update the Tracker",
