@@ -103,3 +103,73 @@ export function parseTrackerCsv(text: string): TrackerParseResult {
   }
   return { rows, malformedCount };
 }
+
+export interface FunnelCounts {
+  applied: number;
+  interview: number;
+  offer: number;
+  hired: number;
+}
+
+export interface Stats {
+  total: number;
+  draftedCount: number;
+  byBucket: Record<StatusBucket, number>;
+  bySector: Record<string, number>;
+  byChannel: Record<string, number>;
+  byYear: Record<string, number>;
+  funnel: FunnelCounts;
+  funnelRate: number;
+  rejectionRate: number;
+  unrecognizedStatuses: string[];
+}
+
+function extractYear(date: string): string {
+  const m = date.match(/(\d{4})/);
+  return m ? m[1] : "Unknown";
+}
+
+export function computeStats(rows: NormalizedRow[]): Stats {
+  const byBucket = Object.fromEntries(STATUS_BUCKETS.map((b) => [b, 0])) as Record<StatusBucket, number>;
+  const bySector: Record<string, number> = {};
+  const byChannel: Record<string, number> = {};
+  const byYear: Record<string, number> = {};
+  const unrecognizedStatuses = new Set<string>();
+
+  for (const row of rows) {
+    byBucket[row.bucket]++;
+    if (normalizeStatus(row.status).unrecognized) unrecognizedStatuses.add(row.status.trim());
+  }
+
+  const submitted = rows.filter((r) => r.bucket !== "Drafted");
+  for (const row of submitted) {
+    if (row.sector) bySector[row.sector] = (bySector[row.sector] ?? 0) + 1;
+    if (row.channel) byChannel[row.channel] = (byChannel[row.channel] ?? 0) + 1;
+    const year = extractYear(row.date);
+    byYear[year] = (byYear[year] ?? 0) + 1;
+  }
+
+  const funnel: FunnelCounts = {
+    applied: submitted.length,
+    interview: byBucket.Interview + byBucket.Offer + byBucket.Hired,
+    offer: byBucket.Offer + byBucket.Hired,
+    hired: byBucket.Hired,
+  };
+  const funnelRate = funnel.applied > 0 ? (funnel.interview / funnel.applied) * 100 : 0;
+
+  const resolved = submitted.length - byBucket.Active;
+  const rejectionRate = resolved > 0 ? (byBucket["Rejected/Closed"] / resolved) * 100 : 0;
+
+  return {
+    total: submitted.length,
+    draftedCount: byBucket.Drafted,
+    byBucket,
+    bySector,
+    byChannel,
+    byYear,
+    funnel,
+    funnelRate,
+    rejectionRate,
+    unrecognizedStatuses: [...unrecognizedStatuses],
+  };
+}

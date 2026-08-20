@@ -86,3 +86,77 @@ describe("normalizeStatus", () => {
     expect(normalizeStatus("ghosted")).toEqual({ bucket: "Rejected/Closed", unrecognized: true });
   });
 });
+
+import { computeStats, type NormalizedRow } from "../src/data";
+
+function row(overrides: Partial<NormalizedRow>): NormalizedRow {
+  return {
+    date: "2026-01-01", company: "Acme", sector: "Tech", role: "Engineer",
+    role_type: "Full-time", channel: "portal", status: "applied",
+    contact_person: "", fit_rating: "80", notes: "", cv_file: "", cover_letter_file: "",
+    source: "", bucket: "Active",
+    ...overrides,
+  };
+}
+
+describe("computeStats", () => {
+  test("excludes Drafted rows from every stat except draftedCount and byBucket", () => {
+    const rows = [row({ bucket: "Drafted", status: "drafted" }), row({ bucket: "Active", status: "applied" })];
+    const stats = computeStats(rows);
+    expect(stats.total).toBe(1);
+    expect(stats.draftedCount).toBe(1);
+    expect(stats.byBucket.Drafted).toBe(1);
+    expect(stats.byBucket.Active).toBe(1);
+  });
+
+  test("computes sector, channel, and year breakdowns from submitted rows only", () => {
+    const rows = [
+      row({ bucket: "Drafted", status: "drafted", sector: "Should not count" }),
+      row({ bucket: "Active", status: "applied", sector: "Tech", channel: "portal", date: "2026-03-15" }),
+      row({ bucket: "Interview", status: "interview", sector: "Finance", channel: "referral", date: "2025" }),
+    ];
+    const stats = computeStats(rows);
+    expect(stats.bySector).toEqual({ Tech: 1, Finance: 1 });
+    expect(stats.byChannel).toEqual({ portal: 1, referral: 1 });
+    expect(stats.byYear).toEqual({ "2026": 1, "2025": 1 });
+  });
+
+  test("computes cumulative funnel counts and funnel rate", () => {
+    const rows = [
+      row({ bucket: "Active", status: "applied" }),
+      row({ bucket: "Interview", status: "interview" }),
+      row({ bucket: "Offer", status: "offer" }),
+      row({ bucket: "Hired", status: "hired" }),
+    ];
+    const stats = computeStats(rows);
+    expect(stats.funnel).toEqual({ applied: 4, interview: 3, offer: 2, hired: 1 });
+    expect(stats.funnelRate).toBeCloseTo(75); // 3 of 4 reached interview+
+  });
+
+  test("computes rejection rate over resolved applications, excluding Active", () => {
+    const rows = [
+      row({ bucket: "Active", status: "applied" }), // resolved: no
+      row({ bucket: "Interview", status: "interview" }), // resolved: yes
+      row({ bucket: "Rejected/Closed", status: "rejected" }), // resolved: yes
+    ];
+    const stats = computeStats(rows);
+    // resolved = 2 (Interview + Rejected/Closed), 1 of those is Rejected/Closed
+    expect(stats.rejectionRate).toBeCloseTo(50);
+  });
+
+  test("returns zero rates and empty breakdowns for no rows", () => {
+    const stats = computeStats([]);
+    expect(stats.total).toBe(0);
+    expect(stats.funnelRate).toBe(0);
+    expect(stats.rejectionRate).toBe(0);
+  });
+
+  test("names unrecognized statuses once each", () => {
+    const rows = [
+      row({ bucket: "Rejected/Closed", status: "ghosted" }),
+      row({ bucket: "Rejected/Closed", status: "ghosted" }),
+    ];
+    const stats = computeStats(rows);
+    expect(stats.unrecognizedStatuses).toEqual(["ghosted"]);
+  });
+});
