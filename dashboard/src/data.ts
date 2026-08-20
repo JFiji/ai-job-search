@@ -1,3 +1,6 @@
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 export interface TrackerRow {
   date: string;
   company: string;
@@ -195,4 +198,60 @@ export function parseOutcomeMd(text: string): OutcomeInfo | null {
     stagesReached.push(m[1].trim());
   }
   return { company: headerMatch[1].trim(), role: headerMatch[2].trim(), stagesReached };
+}
+
+export interface DashboardData {
+  rows: NormalizedRow[];
+  stats: Stats;
+  generatedAt: string;
+  warning?: string;
+}
+
+export async function loadDashboardData(repoRoot: string): Promise<DashboardData> {
+  let csvText: string;
+  try {
+    csvText = await readFile(join(repoRoot, "job_search_tracker.csv"), "utf-8");
+  } catch {
+    return {
+      rows: [],
+      stats: computeStats([]),
+      generatedAt: new Date().toISOString(),
+      warning: "job_search_tracker.csv not found or unreadable",
+    };
+  }
+
+  const { rows: trackerRows, malformedCount } = parseTrackerCsv(csvText);
+  const warnings: string[] = [];
+  if (malformedCount > 0) warnings.push(`${malformedCount} row(s) skipped: wrong column count`);
+
+  const outcomesByKey = new Map<string, OutcomeInfo>();
+  try {
+    const appsDir = join(repoRoot, "documents", "applications");
+    const entries = await readdir(appsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const outcomeText = await readFile(join(appsDir, entry.name, "outcome.md"), "utf-8");
+        const outcome = parseOutcomeMd(outcomeText);
+        if (outcome) outcomesByKey.set(fuzzyKey(outcome.company, outcome.role), outcome);
+      } catch {
+        // no outcome.md for this application yet - nothing to merge
+      }
+    }
+  } catch {
+    // documents/applications missing entirely - the dashboard still works from the CSV alone
+  }
+
+  const rows: NormalizedRow[] = trackerRows.map((row) => {
+    const { bucket } = normalizeStatus(row.status);
+    const outcome = outcomesByKey.get(fuzzyKey(row.company, row.role));
+    return { ...row, bucket, outcomeStages: outcome?.stagesReached };
+  });
+
+  return {
+    rows,
+    stats: computeStats(rows),
+    generatedAt: new Date().toISOString(),
+    warning: warnings.length > 0 ? warnings.join("; ") : undefined,
+  };
 }
