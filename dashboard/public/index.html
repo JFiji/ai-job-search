@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Job Search Dashboard</title>
+  <link rel="stylesheet" href="/dashboard.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>🔍 Job Search Dashboard</h1>
+    <div class="header-actions">
+      <span id="generated-at" class="generated-at"></span>
+      <button id="refresh-btn" type="button">Refresh</button>
+    </div>
+  </header>
+
+  <p id="warning-banner" class="warning-banner" hidden></p>
+
+  <section class="stat-cards" id="stat-cards" aria-label="Summary statistics"></section>
+
+  <section class="charts-grid">
+    <div class="chart-card">
+      <h3>Status breakdown</h3>
+      <div id="chart-status"></div>
+    </div>
+    <div class="chart-card">
+      <h3>By sector</h3>
+      <div id="chart-sector"></div>
+    </div>
+    <div class="chart-card">
+      <h3>By channel</h3>
+      <div id="chart-channel"></div>
+    </div>
+    <div class="chart-card">
+      <h3>Application funnel</h3>
+      <div id="chart-funnel"></div>
+    </div>
+  </section>
+
+  <section class="apply-section">
+    <h2>Apply to a job</h2>
+    <form id="apply-form">
+      <textarea id="apply-input" rows="4" placeholder="Paste a job URL or the full job description"></textarea>
+      <div class="apply-controls">
+        <button id="apply-submit" type="submit">Run /apply</button>
+        <span id="apply-status" class="apply-status"></span>
+      </div>
+      <pre id="apply-log" class="apply-log" hidden></pre>
+    </form>
+  </section>
+
+  <section class="table-section">
+    <h2>Applications</h2>
+    <div class="table-filters">
+      <select id="filter-status"><option value="">All statuses</option></select>
+      <select id="filter-sector"><option value="">All sectors</option></select>
+      <input id="filter-search" type="search" placeholder="Search company, role, sector" />
+    </div>
+    <div class="table-wrap">
+      <table id="applications-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Company</th><th>Role</th><th>Sector</th><th>Channel</th><th>Status</th><th>Notes</th><th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="applications-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="footer" id="footer"></footer>
+
+  <script type="module" src="/dashboard.js"></script>
+</body>
+</html>
