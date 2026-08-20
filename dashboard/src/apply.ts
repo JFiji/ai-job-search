@@ -14,8 +14,19 @@ export type SpawnFn = (cmd: string[]) => {
 
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 
+// Headless `claude -p` runs have no human to approve permission prompts, so
+// every tool call is silently denied unless explicitly granted here - /apply
+// would otherwise "succeed" (exit 0) without ever fetching or writing
+// anything, for every job, every time.
+//
+// Must be a single `--allowedTools=<value>` token (`=`, not a following
+// argv element) - the flag is variadic and a separate next token gets
+// consumed as more tool names, swallowing the prompt argument that comes
+// after it. Verified against the real CLI.
+const ALLOWED_TOOLS = "WebFetch,WebSearch,Read,Write,Edit,Glob,Grep,Agent,Bash";
+
 export function buildApplyCommand(input: string): string[] {
-  return ["claude", "-p", `/apply ${input}`];
+  return ["claude", "-p", `--allowedTools=${ALLOWED_TOOLS}`, `/apply ${input}`];
 }
 
 function defaultSpawn(cmd: string[]): ReturnType<SpawnFn> {
@@ -29,7 +40,15 @@ interface RunningJob {
   listeners: Set<(event: ApplyEvent) => void>;
   timeoutHandle: ReturnType<typeof setTimeout>;
   finished: boolean;
-  terminalEvent: ApplyEvent | null;
+  // Every event emitted so far, in order - not just the terminal one.
+  // `claude -p`'s stdout is fully block-buffered when piped to a non-TTY,
+  // so many/all "message" lines can fire in one synchronous burst well
+  // before a subscriber's HTTP round-trip completes (subscribing is
+  // necessarily a second request after POST /api/apply's response).
+  // Buffering only the terminal event left every message emitted before
+  // that race lost - a subscriber connecting even slightly late saw
+  // nothing at all for the entire run.
+  history: ApplyEvent[];
 }
 
 export class ApplyJobManager {
@@ -56,7 +75,7 @@ export class ApplyJobManager {
       proc,
       listeners: new Set(),
       finished: false,
-      terminalEvent: null,
+      history: [],
       timeoutHandle: setTimeout(() => this.timeoutJob(job), this.timeoutMs),
     };
     this.current = job;
@@ -67,15 +86,13 @@ export class ApplyJobManager {
   subscribe(jobId: JobId, listener: (event: ApplyEvent) => void): (() => void) | null {
     if (!this.current || this.current.id !== jobId) return null;
     const job = this.current;
-    if (job.terminalEvent) {
-      // The job already reached done/error before this subscriber showed up
-      // (e.g. POST /api/apply returned 202, then the subprocess finished
-      // before the client opened its EventSource). Deliver the buffered
-      // terminal event immediately instead of registering a listener that
-      // would otherwise never fire, which would hang the SSE stream forever.
-      listener(job.terminalEvent);
-      return () => {};
-    }
+    // Replay everything that already happened before this subscriber
+    // connected - subscribing is necessarily a second HTTP round-trip after
+    // POST /api/apply's response, so some (occasionally all, given
+    // `claude -p`'s block-buffered stdout) output can already have fired to
+    // zero listeners by the time this call arrives.
+    for (const event of job.history) listener(event);
+    if (job.finished) return () => {};
     job.listeners.add(listener);
     return () => job.listeners.delete(listener);
   }
@@ -123,7 +140,7 @@ export class ApplyJobManager {
   }
 
   private emit(job: RunningJob, event: ApplyEvent): void {
-    if (event.type !== "message") job.terminalEvent = event;
+    job.history.push(event);
     for (const listener of job.listeners) listener(event);
   }
 }

@@ -1,4 +1,6 @@
 import { relative, resolve, join, isAbsolute, sep } from "node:path";
+import type { Server as BunServer } from "bun";
+type Server = BunServer<undefined>;
 import { loadDashboardData } from "./data";
 import { ApplyJobManager, type ApplyEvent } from "./apply";
 
@@ -26,8 +28,8 @@ export function createFetchHandler(
   repoRoot: string,
   jobs: ApplyJobManager,
   publicDir: string,
-): (req: Request) => Promise<Response> {
-  return async function fetch(req: Request): Promise<Response> {
+): (req: Request, server: Server) => Promise<Response> {
+  return async function fetch(req: Request, server: Server): Promise<Response> {
     const url = new URL(req.url);
 
     if (url.pathname === "/api/data" && req.method === "GET") {
@@ -52,6 +54,17 @@ export function createFetchHandler(
 
     const eventsMatch = url.pathname.match(/^\/api\/apply\/([^/]+)\/events$/);
     if (eventsMatch && req.method === "GET") {
+      // Bun's default idle timeout is 10 seconds - this connection can
+      // legitimately sit with no data flowing for minutes while /apply
+      // does real work (WebFetch, evaluation, LaTeX compilation). Without
+      // this, Bun silently kills the connection before any event ever
+      // arrives: reproduced live, `[Bun.serve]: request timed out after
+      // 10 seconds` in the server log while the subprocess was still
+      // genuinely running, with curl reporting a clean early close (not a
+      // timeout) - indistinguishable from the server sending nothing at
+      // all. 0 disables the idle timeout for this request only; every
+      // other route keeps Bun's default.
+      server.timeout(req, 0);
       const jobId = eventsMatch[1];
       const encoder = new TextEncoder();
       let unsubscribe: (() => void) | null = null;

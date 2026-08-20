@@ -2,8 +2,19 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Server as BunServer } from "bun";
+type Server = BunServer<undefined>;
 import { createFetchHandler, resolveStaticAssetPath } from "../src/server";
 import { ApplyJobManager } from "../src/apply";
+
+// Minimal Server stand-in - real handlers receive `(req, server)` from
+// Bun.serve, but nothing in these tests needs a live server beyond
+// recording `.timeout()` calls for the idle-timeout regression test below.
+function fakeServer(): { server: Server; timeoutCalls: Array<[Request, number]> } {
+  const timeoutCalls: Array<[Request, number]> = [];
+  const server = { timeout: (req: Request, seconds: number) => { timeoutCalls.push([req, seconds]); } } as unknown as Server;
+  return { server, timeoutCalls };
+}
 
 function makeRepoFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), "dashboard-server-test-"));
@@ -22,7 +33,7 @@ describe("createFetchHandler", () => {
   test("GET /api/data returns parsed rows and stats", async () => {
     const repoRoot = makeRepoFixture();
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
-    const res = await handler(new Request("http://localhost/api/data"));
+    const res = await handler(new Request("http://localhost/api/data"), fakeServer().server);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.rows).toHaveLength(1);
@@ -35,6 +46,7 @@ describe("createFetchHandler", () => {
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
     const res = await handler(
       new Request("http://localhost/api/apply", { method: "POST", body: JSON.stringify({}) }),
+      fakeServer().server,
     );
     expect(res.status).toBe(400);
     rmSync(repoRoot, { recursive: true, force: true });
@@ -54,6 +66,7 @@ describe("createFetchHandler", () => {
         method: "POST",
         body: JSON.stringify({ input: "https://example.com/job" }),
       }),
+      fakeServer().server,
     );
     expect(first.status).toBe(202);
     const second = await handler(
@@ -61,6 +74,7 @@ describe("createFetchHandler", () => {
         method: "POST",
         body: JSON.stringify({ input: "https://example.com/other" }),
       }),
+      fakeServer().server,
     );
     expect(second.status).toBe(409);
     rmSync(repoRoot, { recursive: true, force: true });
@@ -77,6 +91,7 @@ describe("createFetchHandler", () => {
         method: "POST",
         body: JSON.stringify({ input: "https://example.com/job" }),
       }),
+      fakeServer().server,
     );
     expect(res.status).toBe(500);
     rmSync(repoRoot, { recursive: true, force: true });
@@ -85,17 +100,41 @@ describe("createFetchHandler", () => {
   test("GET /api/apply/:id/events for an unknown job returns an SSE error event", async () => {
     const repoRoot = makeRepoFixture();
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
-    const res = await handler(new Request("http://localhost/api/apply/does-not-exist/events"));
+    const res = await handler(new Request("http://localhost/api/apply/does-not-exist/events"), fakeServer().server);
     expect(res.headers.get("Content-Type")).toBe("text/event-stream");
     const text = await res.text();
     expect(text).toContain("event: error");
     rmSync(repoRoot, { recursive: true, force: true });
   });
 
+  test("GET /api/apply/:id/events disables Bun's default idle timeout for this request", async () => {
+    // Regression test for a real bug found live: Bun.serve's default
+    // idleTimeout is 10 seconds, and a real /apply run can sit with no SSE
+    // data flowing for far longer than that while the subprocess works -
+    // without this, Bun silently kills the connection before any event
+    // ever arrives, indistinguishable from the server sending nothing.
+    const repoRoot = makeRepoFixture();
+    const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
+    const { server, timeoutCalls } = fakeServer();
+    const req = new Request("http://localhost/api/apply/does-not-exist/events");
+    await handler(req, server);
+    expect(timeoutCalls).toEqual([[req, 0]]);
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  test("GET /api/data does not touch the idle timeout - only the SSE route needs it disabled", async () => {
+    const repoRoot = makeRepoFixture();
+    const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
+    const { server, timeoutCalls } = fakeServer();
+    await handler(new Request("http://localhost/api/data"), server);
+    expect(timeoutCalls).toEqual([]);
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
   test("GET / serves index.html", async () => {
     const repoRoot = makeRepoFixture();
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
-    const res = await handler(new Request("http://localhost/"));
+    const res = await handler(new Request("http://localhost/"), fakeServer().server);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("<html>");
     rmSync(repoRoot, { recursive: true, force: true });
@@ -104,7 +143,7 @@ describe("createFetchHandler", () => {
   test("rejects path traversal attempts on static assets", async () => {
     const repoRoot = makeRepoFixture();
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
-    const res = await handler(new Request("http://localhost/../../job_search_tracker.csv"));
+    const res = await handler(new Request("http://localhost/../../job_search_tracker.csv"), fakeServer().server);
     expect(res.status).toBe(404);
     rmSync(repoRoot, { recursive: true, force: true });
   });
@@ -112,7 +151,7 @@ describe("createFetchHandler", () => {
   test("unknown path returns 404", async () => {
     const repoRoot = makeRepoFixture();
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
-    const res = await handler(new Request("http://localhost/nope"));
+    const res = await handler(new Request("http://localhost/nope"), fakeServer().server);
     expect(res.status).toBe(404);
     rmSync(repoRoot, { recursive: true, force: true });
   });
