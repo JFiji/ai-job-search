@@ -1,0 +1,17 @@
+{
+  "name": "job-search-dashboard",
+  "version": "1.0.0",
+  "description": "Local Bun-served dashboard for job_search_tracker.csv, replacing /html-report, with an apply-trigger form that runs /apply headlessly.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/bun": "1.3.14"
+  }
+}
