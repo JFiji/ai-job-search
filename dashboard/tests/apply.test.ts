@@ -109,4 +109,29 @@ describe("ApplyJobManager", () => {
     expect((result as { error: string }).error).toContain("ENOENT");
     expect(manager.isRunning()).toBe(false);
   });
+
+  test("delivers the buffered terminal event to a subscriber that arrives after the job already finished", async () => {
+    // Regression test for a real race: POST /api/apply returns 202 with the
+    // jobId, the client then opens an EventSource, and if the subprocess
+    // finishes in that window (e.g. a fast CLI-auth failure), the terminal
+    // event would already have fired to zero listeners - a late subscribe()
+    // must not just register a listener that never fires again.
+    const spawnFn: SpawnFn = () => ({
+      stdout: fakeStream([]),
+      stderr: fakeStream([]),
+      exited: Promise.resolve(0),
+      kill: () => {},
+    });
+    const manager = new ApplyJobManager(spawnFn, 1000);
+    const { jobId } = manager.start("https://example.com/job") as { jobId: string };
+
+    // Let pump() run to completion and emit "done" with zero subscribers.
+    await new Promise((r) => setTimeout(r, 10));
+
+    const event = await new Promise<{ type: string; data: string }>((resolve) => {
+      const unsubscribe = manager.subscribe(jobId, (e) => resolve(e));
+      expect(unsubscribe).not.toBeNull();
+    });
+    expect(event.type).toBe("done");
+  });
 });

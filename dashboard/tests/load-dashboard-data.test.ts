@@ -51,6 +51,17 @@ describe("loadDashboardData", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  test("surfaces unrecognized status values in the warning banner", async () => {
+    const dir = makeFixture();
+    writeFileSync(
+      join(dir, "job_search_tracker.csv"),
+      HEADER + "2026-01-01,Acme,Tech,Engineer,Full-time,portal,ghosted,,80,,,,\n",
+    );
+    const data = await loadDashboardData(dir);
+    expect(data.warning).toContain("ghosted");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("works when documents/applications does not exist at all", async () => {
     const dir = makeFixture();
     writeFileSync(

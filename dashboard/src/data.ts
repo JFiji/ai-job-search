@@ -248,9 +248,14 @@ export async function loadDashboardData(repoRoot: string): Promise<DashboardData
     return { ...row, bucket, outcomeStages: outcome?.stagesReached };
   });
 
+  const stats = computeStats(rows);
+  if (stats.unrecognizedStatuses.length > 0) {
+    warnings.push(`Unrecognized status value(s): ${stats.unrecognizedStatuses.join(", ")}`);
+  }
+
   return {
     rows,
-    stats: computeStats(rows),
+    stats,
     generatedAt: new Date().toISOString(),
     warning: warnings.length > 0 ? warnings.join("; ") : undefined,
   };

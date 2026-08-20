@@ -209,45 +209,55 @@ function wireApplyForm() {
     logEl.hidden = false;
     logEl.textContent = "";
 
-    const res = await fetch("/api/apply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input }),
-    });
+    try {
+      const res = await fetch("/api/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      });
 
-    if (res.status === 409) {
-      const body = await res.json();
-      statusEl.textContent = `Already running (job ${body.jobId})`;
+      if (res.status === 409) {
+        const body = await res.json();
+        statusEl.textContent = `Already running (job ${body.jobId})`;
+        submitBtn.disabled = false;
+        return;
+      }
+      if (!res.ok) {
+        statusEl.textContent = "Failed to start";
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const { jobId } = await res.json();
+      if (!jobId) {
+        statusEl.textContent = "Failed to start: unexpected response";
+        submitBtn.disabled = false;
+        return;
+      }
+      statusEl.textContent = "Running…";
+      const source = new EventSource(`/api/apply/${jobId}/events`);
+
+      source.addEventListener("message", (event) => {
+        logEl.textContent += event.data + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+      });
+      source.addEventListener("done", () => {
+        statusEl.textContent = "Done — click Refresh to see the new application";
+        submitBtn.disabled = false;
+        source.close();
+      });
+      // Note: EventSource's native connection-error event and our custom SSE "error"
+      // event both surface here under the type "error" - event.data is only set
+      // for the latter, so the fallback text covers the former gracefully.
+      source.addEventListener("error", (event) => {
+        statusEl.textContent = `Error: ${event.data || "apply run failed"}`;
+        submitBtn.disabled = false;
+        source.close();
+      });
+    } catch (err) {
+      statusEl.textContent = `Error: ${err instanceof Error ? err.message : "request failed"}`;
       submitBtn.disabled = false;
-      return;
     }
-    if (!res.ok) {
-      statusEl.textContent = "Failed to start";
-      submitBtn.disabled = false;
-      return;
-    }
-
-    const { jobId } = await res.json();
-    statusEl.textContent = "Running…";
-    const source = new EventSource(`/api/apply/${jobId}/events`);
-
-    source.addEventListener("message", (event) => {
-      logEl.textContent += event.data + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
-    });
-    source.addEventListener("done", () => {
-      statusEl.textContent = "Done — click Refresh to see the new application";
-      submitBtn.disabled = false;
-      source.close();
-    });
-    // Note: EventSource's native connection-error event and our custom SSE "error"
-    // event both surface here under the type "error" - event.data is only set
-    // for the latter, so the fallback text covers the former gracefully.
-    source.addEventListener("error", (event) => {
-      statusEl.textContent = `Error: ${event.data || "apply run failed"}`;
-      submitBtn.disabled = false;
-      source.close();
-    });
   });
 }
 

@@ -29,6 +29,7 @@ interface RunningJob {
   listeners: Set<(event: ApplyEvent) => void>;
   timeoutHandle: ReturnType<typeof setTimeout>;
   finished: boolean;
+  terminalEvent: ApplyEvent | null;
 }
 
 export class ApplyJobManager {
@@ -55,6 +56,7 @@ export class ApplyJobManager {
       proc,
       listeners: new Set(),
       finished: false,
+      terminalEvent: null,
       timeoutHandle: setTimeout(() => this.timeoutJob(job), this.timeoutMs),
     };
     this.current = job;
@@ -65,6 +67,15 @@ export class ApplyJobManager {
   subscribe(jobId: JobId, listener: (event: ApplyEvent) => void): (() => void) | null {
     if (!this.current || this.current.id !== jobId) return null;
     const job = this.current;
+    if (job.terminalEvent) {
+      // The job already reached done/error before this subscriber showed up
+      // (e.g. POST /api/apply returned 202, then the subprocess finished
+      // before the client opened its EventSource). Deliver the buffered
+      // terminal event immediately instead of registering a listener that
+      // would otherwise never fire, which would hang the SSE stream forever.
+      listener(job.terminalEvent);
+      return () => {};
+    }
     job.listeners.add(listener);
     return () => job.listeners.delete(listener);
   }
@@ -112,6 +123,7 @@ export class ApplyJobManager {
   }
 
   private emit(job: RunningJob, event: ApplyEvent): void {
+    if (event.type !== "message") job.terminalEvent = event;
     for (const listener of job.listeners) listener(event);
   }
 }

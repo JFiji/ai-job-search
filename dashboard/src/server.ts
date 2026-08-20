@@ -91,8 +91,9 @@ export function createFetchHandler(
 if (import.meta.main) {
   const repoRoot = resolve(import.meta.dir, "..", "..");
   const publicDir = resolve(import.meta.dir, "..", "public");
-  const port = Number(process.env.PORT ?? process.argv[2] ?? 4173);
+  const rawPort = Number(process.env.PORT ?? process.argv[2] ?? 4173);
+  const port = Number.isInteger(rawPort) && rawPort > 0 ? rawPort : 4173;
   const jobs = new ApplyJobManager();
-  const server = Bun.serve({ port, fetch: createFetchHandler(repoRoot, jobs, publicDir) });
+  const server = Bun.serve({ port, hostname: "127.0.0.1", fetch: createFetchHandler(repoRoot, jobs, publicDir) });
   console.log(`Dashboard running at http://localhost:${server.port}`);
 }

@@ -12,7 +12,8 @@ The tests verify:
    instead of restating status enums.
 3. Legacy space spellings are handled consistently across readers.
 4. Archive-only status values (like `interview_only`) don't appear in tracker
-   status handling.
+   status handling - covered by the dashboard's `normalizeStatus` describe
+   block in dashboard/tests/data.test.ts, not by a test in this file.
 
 They follow the CASES-table pattern from test_apply_records_application.py so
 that adding a new reader is a one-line addition to READER_CASES.

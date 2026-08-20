@@ -92,6 +92,11 @@ ALLOWED_IGNORE_NEGATIONS = {
     "!cv/main_example.tex",
     "!cover_letters/cover_example.tex",
     "!documents/**/.gitkeep",
+    # dashboard/bun.lock is a committed lockfile for the dashboard/ package
+    # (deliberately force-added in Task 1 for reproducibility), not personal
+    # data - the bare `bun.lock` rule it re-includes exists to keep other
+    # lockfiles out, not to protect anything sensitive.
+    "!dashboard/bun.lock",
 }
 
 # Hook commands the template legitimately ships, as "<Event>:<command>" strings.

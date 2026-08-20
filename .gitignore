@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 bun.lock
+# dashboard/ is a committed package (like the .agents/skills/*/cli/ packages
+# below) - its lockfile is force-added for reproducibility, so un-ignore it.
+!dashboard/bun.lock
 
 # Python
 __pycache__/
@@ -86,7 +89,9 @@ job_search_tracker.csv
 # Gmail sync state (message IDs, subjects - personal data)
 gmail_sync/
 
-# Generated reports (personal output from /html-report)
+# Generated reports (legacy personal output from the deleted /html-report
+# command; no current command writes here - /dashboard is a live local
+# server, not a static-file generator - kept in case older branches still do)
 reports/
 
 # Upskill reports (personal output)

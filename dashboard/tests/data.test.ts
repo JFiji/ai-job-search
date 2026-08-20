@@ -85,6 +85,10 @@ describe("normalizeStatus", () => {
   test("buckets unrecognized values into Rejected/Closed and flags them", () => {
     expect(normalizeStatus("ghosted")).toEqual({ bucket: "Rejected/Closed", unrecognized: true });
   });
+
+  test("flags the archive-only status interview_only as unrecognized (it's not a tracker status)", () => {
+    expect(normalizeStatus("interview_only").unrecognized).toBe(true);
+  });
 });
 
 import { computeStats, type NormalizedRow } from "../src/data";
