@@ -173,3 +173,26 @@ export function computeStats(rows: NormalizedRow[]): Stats {
     unrecognizedStatuses: [...unrecognizedStatuses],
   };
 }
+
+export function fuzzyKey(company: string, role: string): string {
+  const clean = (s: string) => s.toLowerCase().replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim();
+  return `${clean(company)}::${clean(role)}`;
+}
+
+export interface OutcomeInfo {
+  company: string;
+  role: string;
+  stagesReached: string[];
+}
+
+export function parseOutcomeMd(text: string): OutcomeInfo | null {
+  const headerMatch = text.match(/^#\s*Outcome:\s*(.+?)\s*—\s*(.+)$/m);
+  if (!headerMatch) return null;
+  const stagesReached: string[] = [];
+  const stageLineRe = /^-\s*\[x\]\s*(.+)$/gim;
+  let m: RegExpExecArray | null;
+  while ((m = stageLineRe.exec(text)) !== null) {
+    stagesReached.push(m[1].trim());
+  }
+  return { company: headerMatch[1].trim(), role: headerMatch[2].trim(), stagesReached };
+}

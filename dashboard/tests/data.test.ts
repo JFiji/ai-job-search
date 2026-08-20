@@ -160,3 +160,49 @@ describe("computeStats", () => {
     expect(stats.unrecognizedStatuses).toEqual(["ghosted"]);
   });
 });
+
+import { fuzzyKey, parseOutcomeMd } from "../src/data";
+
+describe("fuzzyKey", () => {
+  test("is case-insensitive and ignores punctuation", () => {
+    expect(fuzzyKey("Acme, Inc.", "Senior Engineer!")).toBe(fuzzyKey("acme inc", "senior engineer"));
+  });
+
+  test("collapses repeated whitespace", () => {
+    expect(fuzzyKey("Acme   Corp", "Engineer")).toBe(fuzzyKey("Acme Corp", "Engineer"));
+  });
+});
+
+describe("parseOutcomeMd", () => {
+  const sample = `# Outcome: Acme Corp — Senior Engineer
+
+**Status:** rejected
+
+**Date resolved:** 2026-02-01
+
+## Interview stages reached
+- [x] Phone screen (2026-01-10)
+- [x] Technical interview
+- [ ] Case interview
+- [ ] Final round
+- [ ] Offer received
+
+## Notes
+Good conversation, went with an internal candidate.
+`;
+
+  test("extracts company and role from the header", () => {
+    const outcome = parseOutcomeMd(sample);
+    expect(outcome?.company).toBe("Acme Corp");
+    expect(outcome?.role).toBe("Senior Engineer");
+  });
+
+  test("extracts only the checked interview stages", () => {
+    const outcome = parseOutcomeMd(sample);
+    expect(outcome?.stagesReached).toEqual(["Phone screen (2026-01-10)", "Technical interview"]);
+  });
+
+  test("returns null when the file has no recognizable header", () => {
+    expect(parseOutcomeMd("not an outcome file")).toBeNull();
+  });
+});
