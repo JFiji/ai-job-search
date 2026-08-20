@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createFetchHandler } from "../src/server";
+import { createFetchHandler, resolveStaticAssetPath } from "../src/server";
 import { ApplyJobManager } from "../src/apply";
 
 function makeRepoFixture(): string {
@@ -114,6 +114,38 @@ describe("createFetchHandler", () => {
     const handler = createFetchHandler(repoRoot, new ApplyJobManager(), join(repoRoot, "public"));
     const res = await handler(new Request("http://localhost/nope"));
     expect(res.status).toBe(404);
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+});
+
+describe("resolveStaticAssetPath", () => {
+  // These drive raw strings containing literal ".." directly into the guard,
+  // bypassing WHATWG URL normalization (which strips ".."/"%2e%2e" from
+  // `url.pathname` before an HTTP-level test could ever exercise this path).
+  test("rejects a raw traversal string escaping publicDir", () => {
+    const repoRoot = makeRepoFixture();
+    const publicDir = join(repoRoot, "public");
+    expect(resolveStaticAssetPath(publicDir, "../../job_search_tracker.csv")).toBeNull();
+    expect(resolveStaticAssetPath(publicDir, "/../../etc/passwd")).toBeNull();
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  test("rejects a sibling directory sharing publicDir's name as a prefix", () => {
+    const repoRoot = makeRepoFixture();
+    const publicDir = join(repoRoot, "public");
+    // Would incorrectly pass a bare `startsWith(resolvedPublicDir)` check,
+    // since "/repo/public-evil" starts with the string "/repo/public".
+    mkdirSync(join(repoRoot, "public-evil"), { recursive: true });
+    writeFileSync(join(repoRoot, "public-evil", "secret"), "top secret");
+    expect(resolveStaticAssetPath(publicDir, "../public-evil/secret")).toBeNull();
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  test("accepts a path that legitimately resolves inside publicDir", () => {
+    const repoRoot = makeRepoFixture();
+    const publicDir = join(repoRoot, "public");
+    const resolved = resolveStaticAssetPath(publicDir, "/index.html");
+    expect(resolved).toBe(join(publicDir, "index.html"));
     rmSync(repoRoot, { recursive: true, force: true });
   });
 });

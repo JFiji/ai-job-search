@@ -1,6 +1,26 @@
-import { resolve, join } from "node:path";
+import { relative, resolve, join, isAbsolute, sep } from "node:path";
 import { loadDashboardData } from "./data";
 import { ApplyJobManager, type ApplyEvent } from "./apply";
+
+/**
+ * Resolves a requested static-asset path against `publicDir`, guarding against
+ * path traversal. Returns the resolved absolute path, or `null` if the
+ * requested path would escape `publicDir`.
+ *
+ * This is a pure function so the traversal guard can be unit-tested directly
+ * with a raw string containing literal `..` segments, bypassing WHATWG URL
+ * normalization (which strips `..` from `url.pathname` before a handler ever
+ * sees it, so an HTTP-level test alone cannot exercise this logic).
+ */
+export function resolveStaticAssetPath(publicDir: string, requestedPath: string): string | null {
+  const resolvedPublicDir = resolve(publicDir);
+  const assetPath = resolve(join(publicDir, requestedPath));
+  const rel = relative(resolvedPublicDir, assetPath);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    return null;
+  }
+  return assetPath;
+}
 
 export function createFetchHandler(
   repoRoot: string,
@@ -57,9 +77,8 @@ export function createFetchHandler(
     }
 
     const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
-    const resolvedPublicDir = resolve(publicDir);
-    const assetPath = resolve(join(publicDir, requestedPath));
-    if (!assetPath.startsWith(resolvedPublicDir)) {
+    const assetPath = resolveStaticAssetPath(publicDir, requestedPath);
+    if (!assetPath) {
       return new Response("Not found", { status: 404 });
     }
     const file = Bun.file(assetPath);
