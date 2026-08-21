@@ -104,7 +104,7 @@ function row(overrides: Partial<NormalizedRow>): NormalizedRow {
 }
 
 describe("computeStats", () => {
-  test("excludes Drafted rows from every stat except draftedCount and byBucket", () => {
+  test("excludes Drafted rows from total, funnel, and rejectionRate (but not sector/channel - see next test)", () => {
     const rows = [row({ bucket: "Drafted", status: "drafted" }), row({ bucket: "Active", status: "applied" })];
     const stats = computeStats(rows);
     expect(stats.total).toBe(1);
@@ -113,15 +113,19 @@ describe("computeStats", () => {
     expect(stats.byBucket.Active).toBe(1);
   });
 
-  test("computes sector, channel, and year breakdowns from submitted rows only", () => {
+  test("computes sector and channel breakdowns from every row regardless of status, but year only from submitted rows", () => {
+    // Sector/channel intentionally include Drafted rows - "what am I even
+    // working on" is meaningful before formal submission, unlike the
+    // funnel/rejection-rate stats below (which require an actual "applied"
+    // baseline and stay submitted-only).
     const rows = [
-      row({ bucket: "Drafted", status: "drafted", sector: "Should not count" }),
+      row({ bucket: "Drafted", status: "drafted", sector: "Government", channel: "email", date: "2024" }),
       row({ bucket: "Active", status: "applied", sector: "Tech", channel: "portal", date: "2026-03-15" }),
       row({ bucket: "Interview", status: "interview", sector: "Finance", channel: "referral", date: "2025" }),
     ];
     const stats = computeStats(rows);
-    expect(stats.bySector).toEqual({ Tech: 1, Finance: 1 });
-    expect(stats.byChannel).toEqual({ portal: 1, referral: 1 });
+    expect(stats.bySector).toEqual({ Government: 1, Tech: 1, Finance: 1 });
+    expect(stats.byChannel).toEqual({ email: 1, portal: 1, referral: 1 });
     expect(stats.byYear).toEqual({ "2026": 1, "2025": 1 });
   });
 

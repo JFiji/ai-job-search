@@ -142,12 +142,16 @@ export function computeStats(rows: NormalizedRow[]): Stats {
   for (const row of rows) {
     byBucket[row.bucket]++;
     if (normalizeStatus(row.status).unrecognized) unrecognizedStatuses.add(row.status.trim());
+    // Sector/channel intentionally count every row regardless of status -
+    // "what am I even working on" is meaningful before formal submission,
+    // unlike byYear/funnel/rejectionRate below, which need a real "applied"
+    // baseline and stay submitted-only.
+    if (row.sector) bySector[row.sector] = (bySector[row.sector] ?? 0) + 1;
+    if (row.channel) byChannel[row.channel] = (byChannel[row.channel] ?? 0) + 1;
   }
 
   const submitted = rows.filter((r) => r.bucket !== "Drafted");
   for (const row of submitted) {
-    if (row.sector) bySector[row.sector] = (bySector[row.sector] ?? 0) + 1;
-    if (row.channel) byChannel[row.channel] = (byChannel[row.channel] ?? 0) + 1;
     const year = extractYear(row.date);
     byYear[year] = (byYear[year] ?? 0) + 1;
   }
