@@ -172,8 +172,8 @@ ai-job-search/
 │   │   ├── notion-sync.md             # /notion-sync one-way pipeline view in a Notion database
 │   │   └── reset.md                   # /reset wipe profile data or documents folder
 │   ├── skills/
-│   │   ├── job-application-assistant/  # Core application skill
-│   │   │   ├── SKILL.md               # Skill definition
+│   │   ├── job-application-assistant/  # Shared reference core (nine NN-*.md docs) + career advisor
+│   │   │   ├── SKILL.md               # Skill definition + shared-core index
 │   │   │   ├── 01-candidate-profile.md # Your education, experience, skills
 │   │   │   ├── 02-behavioral-profile.md# PI/DISC/personality assessment
 │   │   │   ├── 03-writing-style.md    # Tone, structure, do's and don'ts
@@ -181,7 +181,11 @@ ai-job-search/
 │   │   │   ├── 05-cv-templates.md     # LaTeX CV structure + tailoring rules
 │   │   │   ├── 06-cover-letter-templates.md # LaTeX cover letter templates
 │   │   │   └── 07-interview-prep.md   # STAR examples + interview framework
-│   │   ├── job-scraper/               # Job search orchestration
+│   │   ├── search-and-rank/           # Phase 1: find + rank jobs (absorbs the old scraper)
+│   │   │   ├── SKILL.md               # Search + rank orchestration (/scrape, /rank)
+│   │   │   └── search-queries.md      # Job search query strategy
+│   │   ├── tailor-documents/          # Phase 2: draft + compile the CV and cover letter
+│   │   ├── apply/                     # Phase 3: submit + record applications
 │   │   └── upskill/                   # /upskill skill gap analysis and learning plan
 │   └── settings.json                  # Claude Code permissions (shared, scoped)
 ├── .agents/skills/                    # Job portal CLI tools
